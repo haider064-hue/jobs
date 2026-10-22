@@ -1,7 +1,7 @@
 import requests
 
 # --- CONFIGURATION ---
-BOT_TOKEN = "698119277:AAG0tneOdw7MixiWyg_KB7xSUuLJsJBnUyk"
+BOT_TOKEN = "8859960091:AAG0tneOdw7MixiWyg_KB7xSUuLJsJBnUyk"
 CHAT_ID = "698119277"
 
 def send_telegram_alert(message):
