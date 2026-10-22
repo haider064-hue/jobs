@@ -21,3 +21,7 @@ jobs:
         
       - name: Run script
         run: python med_job_bot.py
+      - name: Run script
+        env:
+          RAPID_API_KEY: ${{ secrets.RAPID_API_KEY }}
+        run: python med_job_bot.py
