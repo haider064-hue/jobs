@@ -1,9 +1,10 @@
 import requests
+import os
 from bs4 import BeautifulSoup
 
 # --- CONFIGURATION ---
 BOT_TOKEN = "8859960091:AAG0tneOdw7MixiWyg_KB7xSUuLJsJBnUyk"
-CHAT_ID = "698119277"
+CHAT_ID = "698119277" 
 
 def send_telegram_alert(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -16,23 +17,18 @@ def send_telegram_alert(message):
     requests.post(url, json=payload)
 
 def scrape_bayt():
-    """Scrapes general physician and resident jobs from Bayt."""
     new_jobs = []
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    
-    # Search URL targeting Riyadh and Eastern Province
     url = "https://www.bayt.com/en/saudi-arabia/jobs/medical-healthcare-jobs/?job_title=physician&job_title=resident"
     
     try:
         response = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Bayt's job card HTML structure
         job_cards = soup.find_all('li', class_='has-pointer-d')
         
-        for card in job_cards[:5]: # Check the top 5 most recent
+        for card in job_cards[:5]:
             title_elem = card.find('h2')
             company_elem = card.find('b', class_='jb-company')
             loc_elem = card.find('span', class_='jb-loc')
@@ -43,8 +39,7 @@ def scrape_bayt():
                 company = company_elem.text.strip() if company_elem else "Private Facility"
                 location = loc_elem.text.strip() if loc_elem else "Saudi Arabia"
                 
-                # Filter for Riyadh and Eastern Province
-                if any(loc in location.lower() for loc in ['riyadh', 'eastern province', 'dammam', 'khobar']):
+                if any(loc in location.lower() for loc in ['riyadh', 'eastern province', 'dammam', 'khobar', 'safwa']):
                     new_jobs.append({
                         "title": title,
                         "company": company,
@@ -57,19 +52,50 @@ def scrape_bayt():
     return new_jobs
 
 def get_protected_portals():
-    """
-    Placeholder for KFSH&RC, KKUH, Indeed, and LinkedIn.
-    Because these sites block standard scrapers, you must connect them via a free job API 
-    (e.g., JSearch on RapidAPI) in the future to fetch their listings securely.
-    """
-    return []
+    new_jobs = []
+    rapid_api_key = os.getenv("RAPID_API_KEY")
+    
+    if not rapid_api_key:
+        print("Error: RapidAPI key not found. Did you add it to GitHub Secrets?")
+        return new_jobs
+
+    url = "https://jsearch.p.rapidapi.com/search"
+    headers = {
+        "X-RapidAPI-Key": rapid_api_key,
+        "X-RapidAPI-Host": "jsearch.p.rapidapi.com"
+    }
+
+    queries = [
+        "General Physician KFSH&RC in Riyadh",
+        "General Physician KFSH&RC in Eastern Province",
+        "Resident KKUH in Riyadh"
+    ]
+
+    for query in queries:
+        querystring = {"query": query, "page": "1", "num_pages": "1"}
+        try:
+            response = requests.get(url, headers=headers, params=querystring, timeout=15)
+            data = response.json()
+            
+            if response.status_code == 200 and data.get("data"):
+                for job in data["data"][:3]:
+                    new_jobs.append({
+                        "title": job.get("job_title", "Medical Job"),
+                        "company": job.get("employer_name", "Hospital"),
+                        "location": f"{job.get('job_city', '')}, {job.get('job_state', '')}",
+                        "link": job.get("job_apply_link", "")
+                    })
+            else:
+                print(f"No results for '{query}'")
+        except Exception as e:
+            print(f"JSearch API Error for '{query}': {e}")
+
+    return new_jobs
 
 def search_medical_jobs():
     all_jobs = []
-    
     print("Scraping Bayt...")
     all_jobs.extend(scrape_bayt())
-    
     print("Fetching APIs for KFSH&RC, KKUH, and LinkedIn...")
     all_jobs.extend(get_protected_portals())
 
